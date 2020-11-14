@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using static LanguageExt.Prelude;
 
 namespace Butthesda
 {
@@ -282,6 +283,9 @@ namespace Butthesda
 				if (device.AllowedMessages.ContainsKey(typeof(VibrateCmd)))
 				{
 					await device.SendVibrateCmd(position);
+				} else if (device.AllowedMessages.ContainsKey(typeof(RotateCmd)))
+				{
+					await device.SendRotateCmd(StrengthToRotation(position), random(2) == 0);
 				}
 
 			}
@@ -289,6 +293,11 @@ namespace Butthesda
 			{
 				_clientLock.Release();
 			}
+		}
+
+		private static UInt32 StrengthToRotation(double strength)
+		{
+			return Convert.ToUInt32(Math.Pow(strength, 2) * 80);
 		}
 
 
