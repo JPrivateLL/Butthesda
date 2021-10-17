@@ -17,7 +17,7 @@ namespace Butthesda
 		public event EventHandler Debug_Message;
 		public event EventHandler EventListUpdated;
 
-		private readonly TimeSpan IntermediateUpdateInterval = new TimeSpan(0, 0, 0, 0, 10); //100 milliseconds
+		private readonly TimeSpan IntermediateUpdateInterval = new TimeSpan(0, 0, 0, 0, 10); //10 milliseconds
 
 		public static List<Device> devices = new List<Device>();
 
@@ -120,9 +120,9 @@ namespace Butthesda
 
 
 
-		public Running_Event AddEvent(string name, List<FunScriptAction> actions, bool synced_by_animation)
+		public Running_Event AddEvent(string name, List<FunScriptAction> actions, bool synced_by_animation = false, bool repeating = false)
 		{
-			Running_Event new_event = new Running_Event(name, actions, synced_by_animation);
+			Running_Event new_event = new Running_Event(name, actions, synced_by_animation, repeating);
 			lock (running_events)
 			{
 				running_events.Add(new_event);
@@ -161,7 +161,7 @@ namespace Butthesda
 			bool paused = false;
 			while (true)
 			{
-				Thread.Sleep(5);
+				Thread.Sleep(1);
 				//if (!gameRunning) continue;
 				//check if there are running events
 				bool has_events = false;
@@ -337,12 +337,13 @@ namespace Butthesda
 
 		public async Task Set(double position)
 		{
+
 			if (client == null) return;
 			
 
 			position = Math.Max(Math.Min(position, 1d), 0d);
 			if (currentPos == position) return;
-
+			Debug_Message?.Invoke(this, new StringArg(String.Format("Set Strength: {0}", position)));
 			bool direction = currentPos > position;
 			currentPos = position;
 
@@ -395,7 +396,7 @@ namespace Butthesda
 	public class Running_Event
 	{
 		public string name;
-
+		public bool repeating;
 		private readonly List<FunScriptAction> actions;
 		DateTime timeStarted;
 
@@ -414,14 +415,18 @@ namespace Butthesda
 			ended = true;
 		}
 
-		public Running_Event() : this("", new List<FunScriptAction>(), false) { }
+		public static Running_Event Empty()
+		{
+			return new Running_Event("", new List<FunScriptAction>(), false);
+		}
 
-		public Running_Event(string name, List<FunScriptAction> actions, bool synced_by_animation)
+		public Running_Event(string name, List<FunScriptAction> actions, bool synced_by_animation, bool repeating = false)
 		{
 			this.name = name;
 			this.synced_by_animation = synced_by_animation;
+			this.repeating = repeating;
 			this.actions = actions;
-			this.ended = false;
+			ended = false;
 			Reset();
 		}
 
@@ -449,11 +454,20 @@ namespace Butthesda
 			//no more steps lets mark it for removal
 			if (current_step >= actions.Count)
 			{
-				if (!synced_by_animation)//uf its synced we dont remove it because the animation might run again.
+				if (repeating)
 				{
-					ended = true;
+					Reset();
 				}
-				return;
+				else
+				{
+					if (!synced_by_animation)//uf its synced we dont remove it because the animation might run again.
+					{
+						ended = true;
+					}
+					return;
+				}
+				
+
 			}
 
 			FunScriptAction action = actions[current_step];

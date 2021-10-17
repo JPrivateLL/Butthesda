@@ -36,6 +36,7 @@ namespace Butthesda
 
         private void Init_Events()
         {
+            events = new List<Actor_Data>();
             string other_dir = Game_Path + @"\FunScripts";
             string[] mod_dirs = Directory.GetDirectories(other_dir);
             foreach (string mod_dir in mod_dirs)
@@ -76,6 +77,8 @@ namespace Butthesda
         private Actor_Data SexLab_Orgasm_Event = new Actor_Data();
         private void Init_SexLabAnimations()
         {
+            SexLab_Animations = new List<Animation_Data>();
+            SexLab_Orgasm_Event = new Actor_Data();
             string sexlab_dir = Game_Path + @"\FunScripts\SexLab";
             string[] mod_dirs = Directory.GetDirectories(sexlab_dir);
 
@@ -124,9 +127,9 @@ namespace Butthesda
 
 
 
-        private Running_Event PlayEvent(Actor_Data event_data, bool synced_by_animation)
+        private Running_Event PlayEvent(Actor_Data event_data, bool synced_by_animation = false, bool repeating = false)
         {
-            Running_Event running_Event = new Running_Event();
+            Running_Event running_Event = Running_Event.Empty();
             foreach (BodyPart_Data bodypart in event_data.bodyparts)
             {
                 if (bodypart == null) { continue; };
@@ -141,7 +144,7 @@ namespace Butthesda
                     {
                         if (device.HasType(bodyPart_id, eventType_id))
                         {
-                            running_Event = device.AddEvent(event_data.name, eventType.actions, synced_by_animation);
+                            running_Event = device.AddEvent(event_data.name, eventType.actions, synced_by_animation, repeating);
                         }
                     }
                 }
@@ -151,12 +154,7 @@ namespace Butthesda
             return running_Event;
         }
 
-        private Running_Event PlayEvent(Actor_Data event_data)
-        {
-            return PlayEvent(event_data, false);
-        }
-
-        public Running_Event PlayEvent(string name)
+        public Running_Event PlayEvent(string name, bool repeating = false)
         {
             name = name.ToLower();
             foreach (Actor_Data event_data in events)
@@ -164,21 +162,21 @@ namespace Butthesda
                 if (event_data.name == name)
                 {
                     Notification_Message?.Invoke(this, new StringArg("Playing event: " + name));
-                    return PlayEvent(event_data);
+                    return PlayEvent(event_data, repeating: repeating);
                 }
             }
             Warning_Message?.Invoke(this, new StringArg("Count not find: " + name));
-            return new Running_Event();
+            return  Running_Event.Empty();
         }
 
 
         private Animation_Data Sexlab_Playing_Animation = new Animation_Data();
-        private Running_Event sexLab_running_Event = new Running_Event();
+        private Running_Event sexLab_running_Event = Running_Event.Empty();
 
 		public int Sexlab_Position { get; private set; } = 0;
         public int Sexlab_Stage { get; private set; } = 0;
         public string Sexlab_Name { get; private set; } = "";
-        private Running_Event sexLab_running_Event_orgasm = new Running_Event();
+        private Running_Event sexLab_running_Event_orgasm = Running_Event.Empty();
 
         public bool SexLab_StartAnimation(string name, int stage, int position, bool usingStrappon)
         {
@@ -212,7 +210,7 @@ namespace Butthesda
         public void SexLab_StopAnimation()
         {
             sexLab_running_Event.End();//end old event
-            sexLab_running_Event = new Running_Event();
+            sexLab_running_Event = Running_Event.Empty();
             Sexlab_Playing_Animation = new Animation_Data();
         }
 
@@ -237,7 +235,7 @@ namespace Butthesda
             if (stage_data != null)
             {
                 Actor_Data position_data = stage_data.positions[Sexlab_Position];
-                sexLab_running_Event = PlayEvent(position_data,true);
+                sexLab_running_Event = PlayEvent(position_data, synced_by_animation: true);
             }
         }
 
@@ -250,7 +248,7 @@ namespace Butthesda
         public void SexLab_Stop_Orgasm()
         {
             sexLab_running_Event_orgasm.End();
-            sexLab_running_Event_orgasm = new Running_Event();
+            sexLab_running_Event_orgasm = Running_Event.Empty();
         }
     }
 

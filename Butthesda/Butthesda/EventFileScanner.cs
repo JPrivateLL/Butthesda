@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -132,6 +132,7 @@ namespace Butthesda
                 long line_nr = 0;
                 bool loading_game = true;
                 bool skipping_old = true;
+                Running_Event dd_vibration = Running_Event.Empty();
                 while (true)
                 {
                     String line = streamReader.ReadLine();
@@ -302,9 +303,12 @@ namespace Butthesda
                                         break;
                                     case "vibrate effect start":
                                         Notification_Message?.Invoke(this, new StringArg("Deviouse Device vibrate " + (float)json.Property("arg")));
-                                        break;
+                                        dd_vibration.End();
+                                        dd_vibration = vibrationEvents.PlayEvent("dd vibrate", repeating: true);
+										break;
                                     case "vibrate effect stop":
                                         Notification_Message?.Invoke(this, new StringArg("Deviouse Device vibrate stop " + (float)json.Property("arg")));
+                                        dd_vibration.End();
                                         break;
                                     case "orgasm":
                                         Notification_Message?.Invoke(this, new StringArg("Deviouse Device orgasm " + (float)json.Property("arg")));
@@ -316,102 +320,24 @@ namespace Butthesda
                                         string type = (string)json.Property("type");
                                         Notification_Message?.Invoke(this, new StringArg("Deviouse Device event: " + type));
 
-                                        switch (type)
-                                        {
-                                            case "trip over":
 
-                                                break;
-                                            case "drip":
+                                        string[] general_events = { "drip", "trip over", "stamina drain", "blindfold mystery", "restraints+armor", "posture collar",
+                                            "wet padding", "blindold trip", "nipple piercings","tight corset","plug moan","trip and fall","bump pumps","struggle",
+                                            "belted empty","mounted","tight gloves","bra chafing","periodic shock", "arm cuff fumble","draugr plug vibration",
+                                            "restrictive collar","mana drain","harness","horny","chaos plug","belt chafing","health drain","organicvibrationeffect",};
 
-                                                break;
-                                            case "stamina drain":
+                                        /*{ "drip", "trip over" , "stamina drain", "blindfold mystery", "restraints+armor", "posture collar",
+                                        "wet padding", "blindold trip", "nipple piercings","tight corset","plug moan","trip and fall","bump pumps","struggle",
+                                            "belted empty","mounted","tight gloves","bra chafing","periodic shock", "arm cuff fumble","draugr plug vibration",
+                                            "restrictive collar","mana drain","vibration","harness","horny","chaos plug","belt chafing","health drain","organicvibrationeffect",};
+                                        */
 
-                                                break;
-                                            case "blindfold mystery":
+                                        if (Array.Exists(general_events, element => element  == type)){//general non device related
+                                            vibrationEvents.PlayEvent("dd "+type);
+                                        }else if(type == "trip over")
+										{
 
-                                                break;
-                                            case "restraints+armor":
-
-                                                break;
-                                            case "posture collar":
-
-                                                break;
-                                            case "wet padding":
-
-                                                break;
-                                            case "blindold trip":
-
-                                                break;
-                                            case "nipple piercings":
-
-                                                break;
-                                            case "tight corset":
-
-                                                break;
-                                            case "plug moan":
-
-                                                break;
-                                            case "trip and fall":
-
-                                                break;
-                                            case "bump pumps":
-
-                                                break;
-                                            case "struggle":
-
-                                                break;
-                                            case "belted empty":
-
-                                                break;
-                                            case "mounted":
-
-                                                break;
-                                            case "tight gloves":
-
-                                                break;
-                                            case "bra chafing":
-
-                                                break;
-                                            case "periodic shock":
-
-                                                break;
-                                            case "arm cuff fumble":
-
-                                                break;
-                                            case "draugr plug vibration":
-
-                                                break;
-                                            case "restrictive collar":
-
-                                                break;
-                                            case "mana drain":
-
-                                                break;
-                                            case "vibration":
-
-                                                break;
-                                            case "harness":
-
-                                                break;
-                                            case "horny":
-
-                                                break;
-                                            case "chaos plug":
-
-                                                break;
-                                            case "belt chafing":
-
-                                                break;
-                                            case "health drain":
-
-                                                break;
-                                            case "organicvibrationeffect":
-
-                                                break;
-                                            default:
-                                                Warning_Message?.Invoke(this, new StringArg("Deviouse Device event unknown type: " + type));
-                                                break;
-                                        }
+										}
 
                                         break;
 
