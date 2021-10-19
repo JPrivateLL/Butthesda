@@ -33,29 +33,30 @@ namespace Butthesda
 
 		private readonly Thread thread;
 
-		public enum BodyPart
+		[Flags] public enum BodyPart
 		{
-			Head = 0,
-			Body,
-			Breast,
-			Belly,
-			Feet,
-			Mouth,
-			Vaginal,
-			Clit,
-			Anal
+			Head = 1,
+			Body = 2,
+			Breast = 3,
+			Belly = 4,
+			Feet = 8,
+			Mouth = 16,
+			Vaginal = 32,
+			Clit = 64,
+			Anal = 128
 		}
 
-		public enum EventType
+		[Flags] public enum EventType
 		{
-			Shock = 0,
-			Damage,
-			Penetrate,
-			Vibrate,
-			Equip
+			Shock = 1,
+			Damage = 2,
+			Penetrate = 4,
+			Vibrate = 8,
+			Equip = 16
 		}
 
-		private readonly List<Running_Event> running_events;
+
+		public List<Running_Event_BodyPart> running_events;
 		public int Running_Event_Count() { return running_events.Count; }
 
 		public Device(String name, ButtplugClient client, ButtplugClientDevice device)
@@ -64,7 +65,7 @@ namespace Butthesda
 			this.device = device;
 			this.client = client;
 			this.active = false;
-			this.running_events = new List<Running_Event>();
+			this.running_events = new List<Running_Event_BodyPart>();
 
 			thread = new Thread(UpdateLoop)
 			{
@@ -107,9 +108,9 @@ namespace Butthesda
 		{
 			lock (running_events)
 			{
-				foreach (Running_Event running_event in running_events)
+				foreach (Running_Event_BodyPart running_event in running_events)
 				{
-					if (running_event.synced_by_animation)
+					if (running_event.parent.synced_by_animation)
 					{
 						running_event.Reset();
 						ForceUpdate();
@@ -119,30 +120,33 @@ namespace Butthesda
 		}
 
 
-
-		public Running_Event AddEvent(string name, List<FunScriptAction> actions, bool synced_by_animation = false, bool repeating = false)
+		public void AddEvent(Running_Event_BodyPart new_event)
 		{
-			Running_Event new_event = new Running_Event(name, actions, synced_by_animation, repeating);
 			lock (running_events)
 			{
 				running_events.Add(new_event);
 			}
 			ForceUpdate();
 			EventListUpdated?.Invoke(this, EventArgs.Empty);
-			return new_event;
 		}
 
-		public static void Stop_All()
+		public void RemoveEvent(Running_Event_BodyPart new_event)
 		{
-
-			foreach (Device device in devices)
+			lock (running_events)
 			{
-				lock (device.running_events)
-				{
-					device.EventListUpdated?.Invoke(device, EventArgs.Empty);
-					device.running_events.Clear();
-					device.ForceUpdate();
-				}
+				running_events.Remove(new_event);
+			}
+			ForceUpdate();
+			EventListUpdated?.Invoke(this, EventArgs.Empty);
+		}
+
+		public void Stop_All()
+		{
+			lock (running_events)
+			{
+				EventListUpdated?.Invoke(device, EventArgs.Empty);
+				running_events.Clear();
+				ForceUpdate();
 			}
 		}
 
@@ -210,23 +214,14 @@ namespace Butthesda
 					lock (running_events)
 					{
 						//update all events and find next update time
-						foreach (Running_Event running_event in running_events)
-						{
-							running_event.Update(timeNow);
-						}
-
-						//remove events that are done
+						//reverse loop as Update() removes items from the running_events list
 						for (int i = running_events.Count - 1; i >= 0; i--)
 						{
-							if (running_events[i].ended)
-							{
-								running_events.RemoveAt(i);
-								EventListUpdated?.Invoke(this, EventArgs.Empty);
-							}
+							running_events[i].Update(timeNow);
 						}
 
 						//find earliest time at wich point we need to do a update again
-						foreach (Running_Event running_event in running_events)
+						foreach (Running_Event_BodyPart running_event in running_events)
 						{
 							if (nextUpdate < running_event.nextTime)
 							{
@@ -236,7 +231,7 @@ namespace Butthesda
 						}
 
 						//Find positions of all events at next update location
-						foreach (Running_Event running_event in running_events)
+						foreach (Running_Event_BodyPart running_event in running_events)
 						{
 							positions.Add(running_event.GetPosition(nextUpdate) / 99.0d);
 						}
@@ -374,16 +369,20 @@ namespace Butthesda
 
 		}
 
-
 		public void SetType(BodyPart bodyPart, EventType eventType, bool set)
 		{
-			this.type[(int)bodyPart, (int)eventType] = set;
+			int index_bodyPart = Array.IndexOf(Enum.GetValues(bodyPart.GetType()), bodyPart);
+			int index_eventType = Array.IndexOf(Enum.GetValues(eventType.GetType()), eventType);
+			this.type[index_bodyPart, index_eventType] = set;
 		}
 
 		public bool HasType(BodyPart bodyPart, EventType eventType)
 		{
-			return this.type[(int)bodyPart, (int)eventType];
+			int index_bodyPart = Array.IndexOf(Enum.GetValues(bodyPart.GetType()), bodyPart);
+			int index_eventType = Array.IndexOf(Enum.GetValues(eventType.GetType()), eventType);
+			return this.type[index_bodyPart, index_eventType];
 		}
+
 
 		private readonly bool[,] type = new bool[Enum.GetNames(typeof(BodyPart)).Length, Enum.GetNames(typeof(EventType)).Length];
 
@@ -393,122 +392,4 @@ namespace Butthesda
 		}
 	}
 
-	public class Running_Event
-	{
-		public string name;
-		public bool repeating;
-		private readonly List<FunScriptAction> actions;
-		DateTime timeStarted;
-
-		uint nextPosition;
-		public DateTime nextTime;
-
-		uint prevPosition;
-		DateTime prevTime;
-
-		int current_step;
-		public bool ended;
-		public readonly bool synced_by_animation;
-
-		public void End()
-		{
-			ended = true;
-		}
-
-		public static Running_Event Empty()
-		{
-			return new Running_Event("", new List<FunScriptAction>(), false);
-		}
-
-		public Running_Event(string name, List<FunScriptAction> actions, bool synced_by_animation, bool repeating = false)
-		{
-			this.name = name;
-			this.synced_by_animation = synced_by_animation;
-			this.repeating = repeating;
-			this.actions = actions;
-			ended = false;
-			Reset();
-		}
-
-
-		public void Reset()
-		{
-			timeStarted = DateTime.Now;
-			prevTime = timeStarted;
-			nextTime = timeStarted;
-			nextPosition = 0;
-			prevPosition = 0;
-			current_step = 0;
-		}
-
-
-		public void Update(DateTime date)
-		{
-
-			//We dont need to update if time didnt pass
-			if (date <= nextTime)
-			{
-				return;
-			}
-
-			//no more steps lets mark it for removal
-			if (current_step >= actions.Count)
-			{
-				if (repeating)
-				{
-					Reset();
-				}
-				else
-				{
-					if (!synced_by_animation)//uf its synced we dont remove it because the animation might run again.
-					{
-						ended = true;
-					}
-					return;
-				}
-				
-
-			}
-
-			FunScriptAction action = actions[current_step];
-			current_step++;
-
-			prevPosition = nextPosition;
-			prevTime = nextTime;
-
-			nextPosition = action.Position;
-			nextTime = timeStarted + action.TimeStamp;
-
-			while (nextTime < date && !ended)
-			{
-				this.Update(date);
-			}
-		}
-
-		public uint GetPosition(DateTime date)
-		{
-
-			if (ended)
-			{
-				return 0;
-			}
-
-			if (date >= nextTime)
-			{
-				return nextPosition;
-			}
-			else if (date <= prevTime)
-			{
-				return prevPosition;
-			}
-			else
-			{
-				//map position between old and new position based on current time
-				uint position = (uint)((float)(date - prevTime).TotalMilliseconds / (float)(nextTime - prevTime).TotalMilliseconds * (nextPosition - prevPosition)) + prevPosition;
-				return Math.Max(Math.Min(position, 99), 0);
-			}
-
-
-		}
-	}
 }

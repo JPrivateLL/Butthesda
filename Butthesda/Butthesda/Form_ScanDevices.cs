@@ -104,7 +104,6 @@ namespace Butthesda
                         String bodyPartName = bodyPartNames[j];
                         Device.BodyPart bodyPartId = bodyPartIds[j];
 
-
                         string[] eventTypeNames = Enum.GetNames(typeof(Device.EventType));
                         Device.EventType[] eventTypeIds = (Device.EventType[])Enum.GetValues(typeof(Device.EventType));
                         for (int k = 0; k < eventTypeNames.Length; k++)

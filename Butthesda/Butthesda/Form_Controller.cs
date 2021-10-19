@@ -72,9 +72,8 @@ namespace Butthesda
                 for (int j = 0; j < eventTypeIds.Length; j++)
                 {
                     Device.EventType eventTypeId = eventTypeIds[j];
-					
 
-					location.Offset(offset_x, 0);
+                    location.Offset(offset_x, 0);
                     CheckBox cb = new CheckBox();
                     cb.Location = location;
                     cb.Size = new Size(size_x, size_y);

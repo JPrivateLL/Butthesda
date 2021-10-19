@@ -10,9 +10,8 @@ namespace Butthesda
 {
 
 
-	class EventFileScanner
+    class EventFileScanner
     {
-
         public event EventHandler Notification_Message;
         public event EventHandler Warning_Message;
         public event EventHandler Error_Message;
@@ -24,7 +23,11 @@ namespace Butthesda
 
         public bool inMenu = false;
         public int arousal = 50;
+
+
+
         public DD_Device_Type[] dd_devices = new DD_Device_Type[Enum.GetNames(typeof(DD_Device_Location)).Length];
+
         public enum DD_Device_Location
         {
             Vaginal = 0,
@@ -32,6 +35,7 @@ namespace Butthesda
             VaginalPiecing,
             NipplePiercing
         }
+
         public enum DD_Device_Type
         {
             none = 0,
@@ -52,16 +56,16 @@ namespace Butthesda
 
 
         private string last_idle = "";
-        private Running_Event[] running_animation_events = new Running_Event[Enum.GetNames(typeof(DD_Device_Location)).Length];
+        private Running_Event running_animation_event = Running_Event.Empty();
         private void MemoryScanner_AnimationEvent(object sender, StringArg e)
         {
             string animation = e.String;
+            Device.BodyPart bodyparts_specific;
 
             switch (animation)
             {
                 case "FootRight":
                 case "FootLeft":
-                case "JumpUp":
                 case "JumpDown":
 
                 case "IdleChairSitting":
@@ -77,33 +81,47 @@ namespace Butthesda
                 case "tailMTLocomotion":
                 case "tailSneakLocomotion":
                 case "tailCombatLocomotion":
+                    if (last_idle == "JumpUp") running_animation_event.End();
+                    if (!running_animation_event.ended) break; //only run one event per device per time
 
-                    if (last_idle == animation) return;//prevent idle spam when slowly rotating arround with weapon drawn
+                    if (last_idle == animation) break; //prevent idle spam when slowly rotating arround with weapon drawn
+                    last_idle = animation;  
+
+                    DD_MoveAnimation_Event("dd device footstep");
+                    break;
+                case "JumpUp":
                     last_idle = animation;
-
-
-                    for (int i = 0; i < dd_devices.Length; i++)
-                    {
-                        DD_Device_Type type = dd_devices[i];
-                        if (type == DD_Device_Type.none) continue;
-
-                        //only run one event per device per time
-                        Running_Event running_event = running_animation_events[i];
-                        if(running_event != null)
-                            if(!running_event.ended)
-                                continue;
-
-                        string location = Enum.GetNames(typeof(DD_Device_Location))[i].ToLower();
-                        running_animation_events[i] = vibrationEvents.PlayEvent("dd device footstep " + location);
-
-                        
-                    };
-
-                    //PlaySound();
-
+                    DD_MoveAnimation_Event("dd device jumpup");
+                    break;
+                case "JumpLandEnd":
+                    last_idle = animation;
+                    DD_MoveAnimation_Event("dd device jumplandend");
                     break;
             }
+        }
 
+        public Device.BodyPart DD_Type_To_BodyPart(DD_Device_Location dd_location)
+        {
+            if (dd_location == DD_Device_Location.Vaginal) return Device.BodyPart.Vaginal;
+            if (dd_location == DD_Device_Location.Anal) return Device.BodyPart.Anal;
+            if (dd_location == DD_Device_Location.VaginalPiecing) return Device.BodyPart.Clit;
+            return Device.BodyPart.Breast;
+        }
+
+        private void DD_MoveAnimation_Event(String eventName)
+		{
+            Device.BodyPart bodyparts_specific = 0;
+            for (int i = 0; i < dd_devices.Length; i++)
+            {
+                if (dd_devices[i] == DD_Device_Type.none) continue; // check if dd_device is used
+                                                                    // get bodypart to which the dd_device belongs
+                Device.BodyPart test = DD_Type_To_BodyPart((DD_Device_Location)i);
+                bodyparts_specific = bodyparts_specific | test;
+            }
+
+            if (bodyparts_specific == 0) return;
+
+            running_animation_event = vibrationEvents.PlayEvent(eventName, bodyparts_specific: bodyparts_specific);
 
         }
 
@@ -132,7 +150,7 @@ namespace Butthesda
                 long line_nr = 0;
                 bool loading_game = true;
                 bool skipping_old = true;
-                Running_Event dd_vibration = Running_Event.Empty();
+                List<Running_Event> dd_vibrations = new List<Running_Event>();
                 while (true)
                 {
                     String line = streamReader.ReadLine();
@@ -267,7 +285,7 @@ namespace Butthesda
                                         for (int i = 0; i < dd_devices.Length; i++)
                                         {
                                             DD_Device_Type dd_device_current_type = dd_devices[i];
-
+                                            String[] test = Enum.GetNames(typeof(DD_Device_Location));
                                             string s_location = Enum.GetNames(typeof(DD_Device_Location))[i].ToLower();
                                             string s_location_type = (string)json.Property(s_location);
                                             string[] s_location_types = Array.ConvertAll(Enum.GetNames(typeof(DD_Device_Type)), d => d.ToLower());
@@ -302,13 +320,49 @@ namespace Butthesda
 
                                         break;
                                     case "vibrate effect start":
-                                        Notification_Message?.Invoke(this, new StringArg("Deviouse Device vibrate " + (float)json.Property("arg")));
-                                        dd_vibration.End();
-                                        dd_vibration = vibrationEvents.PlayEvent("dd vibrate", repeating: true);
+                                        float arg = (float)json.Property("arg");
+
+                                        //DD sends us (vibStrength * numVibratorsMult) as argument. We want to use vibStrength so we need to devide it by numVibratorsMult
+                                        float[] dd_device_multipliers = { 0.7f, 0.3f, 0.25f, 0f, 0.5f };
+                                        float dd_device_multiplier = 0f;
+                                        for(int i = 0; i < dd_devices.Length; i++)
+										{
+                                            DD_Device_Type dd_device_current_type = dd_devices[i];
+                                            if(dd_device_current_type != DD_Device_Type.none)
+											{
+                                                dd_device_multiplier += dd_device_multipliers[i];
+                                            }
+                                        }
+										if (dd_device_multiplier > 1){ dd_device_multiplier = 1; }
+                                        arg /= dd_device_multiplier;
+
+                                        //numVibratorsMult can be x1.15 if blindfolded, by rounding it down we always get the right number (5*1.15=5.75)
+                                        int strength = (int)Math.Floor(arg);
+
+                                        //end old vibrations if they where running
+                                        foreach (Running_Event dd_vibration in dd_vibrations)
+                                        {
+                                            dd_vibration.End();
+                                        }
+
+                                        //add new vibration for each dd_device in use
+                                        for (int i = 0; i < dd_devices.Length; i++)
+										{
+                                            string location = Enum.GetNames(typeof(DD_Device_Location))[i].ToLower();
+                                            dd_vibrations.Add(vibrationEvents.PlayEvent("dd vibrate strength_" + strength + " " + location, repeating: true));
+                                        }
+                                        
+                                        Notification_Message?.Invoke(this, new StringArg("Deviouse Device vibrate " + strength));
+                                        
+                                        
 										break;
                                     case "vibrate effect stop":
                                         Notification_Message?.Invoke(this, new StringArg("Deviouse Device vibrate stop " + (float)json.Property("arg")));
-                                        dd_vibration.End();
+                                        //end old vibrations if they where running
+                                        foreach (Running_Event dd_vibration in dd_vibrations)
+                                        {
+                                            dd_vibration.End();
+                                        }
                                         break;
                                     case "orgasm":
                                         Notification_Message?.Invoke(this, new StringArg("Deviouse Device orgasm " + (float)json.Property("arg")));
@@ -334,7 +388,7 @@ namespace Butthesda
 
                                         if (Array.Exists(general_events, element => element  == type)){//general non device related
                                             vibrationEvents.PlayEvent("dd "+type);
-                                        }else if(type == "trip over")
+                                        }else if(type == "xxx")
 										{
 
 										}

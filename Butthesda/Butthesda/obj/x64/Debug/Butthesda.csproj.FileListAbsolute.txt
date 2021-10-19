@@ -66,3 +66,9 @@ C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\System.B
 C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\System.Memory.xml
 C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\System.Numerics.Vectors.xml
 C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\System.Runtime.CompilerServices.Unsafe.xml
+C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\SharpDX.Direct2D1.pdb
+C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\SharpDX.Direct3D11.pdb
+C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\SharpDX.Direct3D9.pdb
+C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\SharpDX.DXGI.pdb
+C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\SharpDX.Mathematics.pdb
+C:\Users\jpriv\source\repos\Butthesda\Butthesda\Butthesda\bin\x64\Debug\SharpDX.MediaFoundation.pdb

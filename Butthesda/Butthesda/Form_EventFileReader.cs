@@ -507,7 +507,7 @@ namespace Butthesda
 
 			memory_scanner.Close();
 			Thread_eventFileScanner.Abort();
-			Device.Stop_All();
+			Running_Event.Stop_All();
 		}
 
 

@@ -31,12 +31,12 @@ namespace Butthesda
 
 
 
-        private List<Actor_Data> events = new List<Actor_Data>();
+        private List<Data_Actor> events = new List<Data_Actor>();
 
 
         private void Init_Events()
         {
-            events = new List<Actor_Data>();
+            events = new List<Data_Actor>();
             string other_dir = Game_Path + @"\FunScripts";
             string[] mod_dirs = Directory.GetDirectories(other_dir);
             foreach (string mod_dir in mod_dirs)
@@ -50,18 +50,18 @@ namespace Butthesda
                 foreach (string event_dir in event_dirs)
                 {
                     string name = Path.GetFileName(event_dir).ToLower();
-                    events.Add(new Actor_Data(name, event_dir));
+                    events.Add(new Data_Actor(name, event_dir));
                 }
             }
 
             int funscript_count = 0;
-            foreach (Actor_Data p_d in events)
+            foreach (Data_Actor p_d in events)
             {
                 if (p_d == null) continue;
-                foreach (BodyPart_Data b_d in p_d.bodyparts)
+                foreach (Data_BodyPart b_d in p_d.bodypart_datas)
                 {
                     if (b_d == null) continue;
-                    foreach (EventType_Data e_d in b_d.eventTypes)
+                    foreach (Data_EventType e_d in b_d.eventType_datas)
                     {
                         funscript_count++;
                     }
@@ -73,12 +73,12 @@ namespace Butthesda
 
 
 
-        private List<Animation_Data> SexLab_Animations = new List<Animation_Data>();
-        private Actor_Data SexLab_Orgasm_Event = new Actor_Data();
+        private List<Data_Animation> SexLab_Animations = new List<Data_Animation>();
+        private Data_Actor SexLab_Orgasm_Event = new Data_Actor();
         private void Init_SexLabAnimations()
         {
-            SexLab_Animations = new List<Animation_Data>();
-            SexLab_Orgasm_Event = new Actor_Data();
+            SexLab_Animations = new List<Data_Animation>();
+            SexLab_Orgasm_Event = new Data_Actor();
             string sexlab_dir = Game_Path + @"\FunScripts\SexLab";
             string[] mod_dirs = Directory.GetDirectories(sexlab_dir);
 
@@ -86,7 +86,7 @@ namespace Butthesda
             {
                 if (mod_dir.ToLower() == "orgasm")
                 {
-                    SexLab_Orgasm_Event = new Actor_Data("orgasm", mod_dir);
+                    SexLab_Orgasm_Event = new Data_Actor("orgasm", mod_dir);
                     continue;
                 }
 
@@ -94,25 +94,25 @@ namespace Butthesda
                 foreach (string animation_dir in animation_dirs)
                 {
                     string name = Path.GetFileName(animation_dir).ToLower();
-                    SexLab_Animations.Add(new Animation_Data(name, animation_dir));
+                    SexLab_Animations.Add(new Data_Animation(name, animation_dir));
                 }
             }
 
 
             int funscript_count = 0;
 
-            foreach(Animation_Data sl_a in SexLab_Animations)
+            foreach(Data_Animation sl_a in SexLab_Animations)
 			{
-				foreach (Stage_Data s_d in sl_a.stages)
+				foreach (Data_Stage s_d in sl_a.stages)
 				{
                     if (s_d == null) continue;
-                    foreach (Actor_Data p_d in s_d.positions)
+                    foreach (Data_Actor p_d in s_d.positions)
 					{
                         if (p_d == null) continue;
-                        foreach (BodyPart_Data b_d in p_d.bodyparts)
+                        foreach (Data_BodyPart b_d in p_d.bodypart_datas)
 						{
                             if (b_d == null) continue;
-							foreach (EventType_Data e_d in b_d.eventTypes)
+							foreach (Data_EventType e_d in b_d.eventType_datas)
 							{
                                 funscript_count++;
                             }
@@ -126,43 +126,48 @@ namespace Butthesda
 
 
 
-
-        private Running_Event PlayEvent(Actor_Data event_data, bool synced_by_animation = false, bool repeating = false)
+        /// <summary>adds funscript to device. use bodyparts_specific to only select certain funscripts related to bodypart
+        /// </summary>
+        private Running_Event PlayEvent(Data_Actor data_event, bool synced_by_animation = false, bool repeating = false, Device.BodyPart bodyparts_specific = 0)
         {
-            Running_Event running_Event = Running_Event.Empty();
-            foreach (BodyPart_Data bodypart in event_data.bodyparts)
+
+            List<Running_Event_BodyPart> running_Event_BodyParts = new List<Running_Event_BodyPart>();
+
+
+            foreach (Data_BodyPart data_bodypart in data_event.bodypart_datas)
             {
-                if (bodypart == null) { continue; };
-                Device.BodyPart bodyPart_id = bodypart.bodyPart;
+                if (data_bodypart == null) { continue; }
+                if (bodyparts_specific != 0 && !bodyparts_specific.HasFlag(data_bodypart.bodyPart)) { continue; }// only vibrate on given body parts
 
-                foreach (EventType_Data eventType in bodypart.eventTypes)
+                Device.BodyPart bodyPart_id = data_bodypart.bodyPart;
+
+                foreach (Data_EventType data_eventType in data_bodypart.eventType_datas)
                 {
-                    if (eventType == null) { continue; };
-                    Device.EventType eventType_id = eventType.eventType;
-
+                    if (data_eventType == null) { continue; };
+                    Device.EventType eventType = data_eventType.eventType;
+                    List<Device> devices = new List<Device>();
                     foreach (Device device in Device.devices)
-                    {
-                        if (device.HasType(bodyPart_id, eventType_id))
-                        {
-                            running_Event = device.AddEvent(event_data.name, eventType.actions, synced_by_animation, repeating);
-                        }
+					{
+                        if (device.HasType(bodyPart_id, eventType)) devices.Add(device);
                     }
-                }
 
+                    if (devices.Count == 0) continue;
+                    running_Event_BodyParts.Add(new Running_Event_BodyPart(data_eventType.actions, devices, bodyPart_id));
+                }
             }
 
-            return running_Event;
+            return new Running_Event(data_event.name, running_Event_BodyParts, synced_by_animation, repeating);
         }
 
-        public Running_Event PlayEvent(string name, bool repeating = false)
+        public Running_Event PlayEvent(string name, bool repeating = false, Device.BodyPart bodyparts_specific = 0)
         {
             name = name.ToLower();
-            foreach (Actor_Data event_data in events)
+            foreach (Data_Actor event_data in events)
             {
                 if (event_data.name == name)
                 {
                     Notification_Message?.Invoke(this, new StringArg("Playing event: " + name));
-                    return PlayEvent(event_data, repeating: repeating);
+                    return PlayEvent(event_data, repeating: repeating, bodyparts_specific: bodyparts_specific);
                 }
             }
             Warning_Message?.Invoke(this, new StringArg("Count not find: " + name));
@@ -170,7 +175,7 @@ namespace Butthesda
         }
 
 
-        private Animation_Data Sexlab_Playing_Animation = new Animation_Data();
+        private Data_Animation Sexlab_Playing_Animation = new Data_Animation();
         private Running_Event sexLab_running_Event = Running_Event.Empty();
 
 		public int Sexlab_Position { get; private set; } = 0;
@@ -184,7 +189,7 @@ namespace Butthesda
 
             name = name.ToLower();
             Sexlab_Name = name;
-            foreach (Animation_Data animation in SexLab_Animations)
+            foreach (Data_Animation animation in SexLab_Animations)
             {
                 if (animation.name == name)
                 {
@@ -193,8 +198,6 @@ namespace Butthesda
                     Sexlab_Playing_Animation = animation;
                     Sexlab_Stage = stage;
                     Sexlab_Position = position;
-
-                    
 
                     //lets not do this here because the animation is not started yet
                     //it starts playing when stage updates
@@ -211,7 +214,7 @@ namespace Butthesda
         {
             sexLab_running_Event.End();//end old event
             sexLab_running_Event = Running_Event.Empty();
-            Sexlab_Playing_Animation = new Animation_Data();
+            Sexlab_Playing_Animation = new Data_Animation();
         }
 
         public void SexLab_SetStage(int stage)
@@ -231,10 +234,10 @@ namespace Butthesda
         {
             SexLab_Animation_Changed?.Invoke(this, new StringArg(String.Format("{0} S-{1}, P-{2}", Sexlab_Name, Sexlab_Stage,Sexlab_Position)));
             sexLab_running_Event.End();
-            Stage_Data stage_data = Sexlab_Playing_Animation.stages[Sexlab_Stage];
+            Data_Stage stage_data = Sexlab_Playing_Animation.stages[Sexlab_Stage];
             if (stage_data != null)
             {
-                Actor_Data position_data = stage_data.positions[Sexlab_Position];
+                Data_Actor position_data = stage_data.positions[Sexlab_Position];
                 sexLab_running_Event = PlayEvent(position_data, synced_by_animation: true);
             }
         }
@@ -253,49 +256,49 @@ namespace Butthesda
     }
 
 
-    class Animation_Data
+    class Data_Animation
     {
         public string name;
-        public Stage_Data[] stages = new Stage_Data[50];
-        public Animation_Data(string name, string dir)
+        public Data_Stage[] stages = new Data_Stage[50];
+        public Data_Animation(string name, string dir)
         {
             this.name = name;
             String[] stage_dirs = Directory.GetDirectories(dir);
             foreach (string stage_dir in stage_dirs)
             {
                 int index = Int32.Parse(Path.GetFileName(stage_dir).Substring(1));
-                stages[index - 1] = new Stage_Data(stage_dir);
+                stages[index - 1] = new Data_Stage(stage_dir);
             }
 
         }
-        public Animation_Data()
+        public Data_Animation()
         {
             name = "none";
         }
     }
 
-    class Stage_Data
+    class Data_Stage
     {
-        public Actor_Data[] positions = new Actor_Data[10];
-        public Stage_Data(String stage_dir)
+        public Data_Actor[] positions = new Data_Actor[10];
+        public Data_Stage(String stage_dir)
         {
             String[] position_dirs = Directory.GetDirectories(stage_dir);
 
             foreach (String position_dir in position_dirs)
             {
                 int index = Int32.Parse(Path.GetFileName(position_dir).Substring(1));
-                positions[index - 1] = new Actor_Data(position_dir);
+                positions[index - 1] = new Data_Actor(position_dir);
             }
         }
 
     }
 
-    class Actor_Data
+    class Data_Actor
     {
         public string name = "";
-        public BodyPart_Data[] bodyparts = new BodyPart_Data[Enum.GetNames(typeof(Device.BodyPart)).Length];
+        public Data_BodyPart[] bodypart_datas = new Data_BodyPart[Enum.GetNames(typeof(Device.BodyPart)).Length];
 
-        public Actor_Data(string name, string position_dir)
+        public Data_Actor(string name, string position_dir)
         {
             this.name = name;
             string[] bodyPart_dirs = Directory.GetDirectories(position_dir);
@@ -313,27 +316,29 @@ namespace Butthesda
                 {
                     continue;
                 }
+                
+                int index = Array.IndexOf(Enum.GetValues(bodyPart.GetType()), bodyPart);
 
-                int index = (int)bodyPart;
-                bodyparts[index] = new BodyPart_Data(bodyPart_dir, bodyPart);
+                bodypart_datas[index] = new Data_BodyPart(bodyPart_dir, bodyPart);
+
             }
         }
 
-        public Actor_Data(string position_dir) : this("", position_dir)
+        public Data_Actor(string position_dir) : this("", position_dir)
         {
         }
 
-        public Actor_Data()
+        public Data_Actor()
         {
         }
 
     }
 
-    class BodyPart_Data
+    class Data_BodyPart
     {
-        public EventType_Data[] eventTypes = new EventType_Data[Enum.GetNames(typeof(Device.EventType)).Length];
+        public Data_EventType[] eventType_datas = new Data_EventType[Enum.GetNames(typeof(Device.EventType)).Length];
         public Device.BodyPart bodyPart;
-        public BodyPart_Data(string bodyPart_dir, Device.BodyPart bodyPart)
+        public Data_BodyPart(string bodyPart_dir, Device.BodyPart bodyPart)
         {
             this.bodyPart = bodyPart;
 
@@ -369,20 +374,21 @@ namespace Butthesda
                     continue;
                 }
 
-                int index = (int)eventType;
 
-                if(eventTypes[index] == null)
+                int index = Array.IndexOf(Enum.GetValues(eventType.GetType()), eventType);
+
+                if(eventType_datas[index] == null)
 				{
-                    eventTypes[index] = new EventType_Data(eventType);
+                    eventType_datas[index] = new Data_EventType(eventType);
                 }
 
 				if (is_estim)
 				{
-                    eventTypes[index].Add_Estim(eventType_dir);
+                    eventType_datas[index].Add_Estim(eventType_dir);
                 }
                 else if (is_funscript)
 				{
-                    eventTypes[index].Add_Funscript(eventType_dir);
+                    eventType_datas[index].Add_Funscript(eventType_dir);
                 }
                 
                 
@@ -392,13 +398,13 @@ namespace Butthesda
 
     }
 
-    class EventType_Data
+    class Data_EventType
     {
         public List<FunScriptAction> actions;
         public Device.EventType eventType;
         public string estim_file = "";
 
-        public EventType_Data(Device.EventType eventType)
+        public Data_EventType(Device.EventType eventType)
         {
             this.eventType = eventType;
         }
